@@ -43,8 +43,10 @@ def cargar_datos():
 # Título y descripción
 st.title("Immunization Coverage Dashboard")
 st.markdown("""
-This Dashboard displays immunization coverage by country and year.
-Use the controls at the top to filter the data.
+This interactive dashboard provides a comprehensive view of immunization coverage data by country and year. You can filter the data using the controls at the top based on Coverage Category, Antigen, Year Range, WHO Region, and Countries.  
+The dashboard displays a pivot table with color gradients that visually represent coverage levels, making it easier to analyze trends and differences across regions and years.
+
+At the bottom of the page, you will find the **About the Project** section, which includes additional details about the dashboard, the data source, a disclaimer, and creator contact information.
 """)
 
 # Cargar datos
@@ -177,3 +179,22 @@ else:
         file_name="filtered_table.csv",
         mime="text/csv"
     )
+
+# --- About the Project Section ---
+st.markdown("---")
+st.markdown("### About the Project")
+st.markdown("""
+This dashboard was developed to provide an interactive visualization of immunization coverage data by country and year.
+
+**Data Source:**  
+Data is sourced from the [World Health Organization's Immunization Data portal](https://immunizationdata.who.int/).
+
+**Disclaimer:**  
+This dashboard is for informational purposes only and does not represent an official report by the World Health Organization.
+
+**Created by:**  
+**Cesar Vera**  
+Data Analyst and Visualization Specialist              
+Email: [cesarvera6@gmail.com](mailto:cesarvera6@gmail.com)  
+Portfolio: [https://cesarvera66.github.io/portfolio_cesarvera/](https://cesarvera66.github.io/portfolio_cesarvera/)
+""")

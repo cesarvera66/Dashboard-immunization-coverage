@@ -14,7 +14,6 @@ def cargar_datos():
     """
     file_path = "data/coverage-data.csv"  # Ruta fija al archivo CSV
     try:
-        # Intenta leer el archivo CSV con el delimitador ';'
         df = pd.read_csv(file_path, delimiter=';', on_bad_lines='skip')
         
         # Renombrar columnas para que coincidan con los nombres esperados
@@ -29,12 +28,15 @@ def cargar_datos():
             "COVERAGE_CATEGORY_DESCRIPTION": "COVERAGE_CATEGORY_DESCRIPTION",
             "TARGET_NUMBER": "TARGET_NUMBER",
             "DOSES": "DOSES",
-            "COVERAGE": "COVERAGE"
+            "COVERAGE": "COVERAGE",
+            # Asegúrate de que en tu CSV ya exista la columna con las regiones WHO,
+            # por ejemplo con el nombre "WHO REGIONS"
         }
         df.rename(columns=column_mapping, inplace=True)
     except Exception as e:
         st.error(f"Error al leer el archivo: {e}")
         st.stop()
+
     # Limpiar espacios en blanco en los nombres de las columnas
     df.columns = df.columns.str.strip()
     return df
@@ -43,14 +45,22 @@ def cargar_datos():
 st.title("Tabla de Cobertura de Inmunización")
 st.markdown("""
 Esta aplicación muestra la cobertura de inmunización por país y año.
-Usa los controles de la barra lateral para filtrar la información.
+Usa los controles de la parte superior para filtrar la información.
 """)
 
 # Cargar datos
 df = cargar_datos()
 
-# Verificar que existan las columnas necesarias
-required_columns = ["ANTIGEN", "YEAR", "NAME", "COVERAGE", "COVERAGE_CATEGORY"]
+# Verificar columnas necesarias
+required_columns = [
+    "ANTIGEN",
+    "YEAR",
+    "NAME",
+    "COVERAGE",
+    "COVERAGE_CATEGORY",
+    "ANTIGEN_DESCRIPTION",
+    "WHO REGIONS"  # Asegúrate de que esta columna exista en tu CSV
+]
 if not set(required_columns).issubset(df.columns):
     st.error(
         f"El DataFrame debe contener las columnas {required_columns}. "
@@ -58,33 +68,48 @@ if not set(required_columns).issubset(df.columns):
     )
     st.stop()
 
-# --- Filtros en la parte superior en una misma línea ---
-st.markdown("### Filtros")
-col1, col2, col3, col4 = st.columns(4)
+# --- Filtros en la parte superior en una misma línea (5 columnas) ---
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     coverage_categories = sorted(df["COVERAGE_CATEGORY"].dropna().unique())
-    selected_coverage_category = st.selectbox(
-        "Categoría", options=coverage_categories
-    )
+    selected_coverage_category = st.selectbox("Categoría", options=coverage_categories)
 
 with col2:
-    # Filtrar el DataFrame según la categoría seleccionada para obtener los antígenos
+    # Filtrar por categoría para obtener los antígenos disponibles
     df_filtered_by_category = df[df["COVERAGE_CATEGORY"] == selected_coverage_category]
     antigens = sorted(df_filtered_by_category["ANTIGEN"].dropna().unique())
-    selected_antigen = st.selectbox("Antígeno", antigens)
+    selected_antigen = st.selectbox("Antígeno", options=antigens)
 
 with col3:
     min_year, max_year = int(df["YEAR"].min()), int(df["YEAR"].max())
-    year_range = st.slider(
-        "Años", min_value=min_year, max_value=max_year, value=(2010, 2024)
-    )
+    year_range = st.slider("Años", min_value=min_year, max_value=max_year, value=(2010, 2024))
 
 with col4:
-    countries = sorted(df["NAME"].dropna().unique())
-    selected_countries = st.multiselect(
-        "Países", options=countries
-    )
+    # Filtro de WHO Region (selección única, con opción "Todos"), basado en la categoría
+    df_filtered_by_category = df[df["COVERAGE_CATEGORY"] == selected_coverage_category]
+    who_regions_list = sorted(df_filtered_by_category["WHO REGIONS"].dropna().unique())
+    who_regions_options = ["Todos"] + who_regions_list
+    selected_who_region = st.selectbox("WHO Region", options=who_regions_options)
+
+with col5:
+    # Filtro de Países: depende del filtro de WHO Region
+    if selected_who_region == "Todos":
+        available_countries = sorted(df["NAME"].dropna().unique())
+    else:
+        available_countries = sorted(df[df["WHO REGIONS"] == selected_who_region]["NAME"].dropna().unique())
+    selected_countries = st.multiselect("Países", options=available_countries)
+
+# Obtener la descripción del antígeno seleccionado
+antigen_description_arr = df_filtered_by_category.loc[
+    df_filtered_by_category["ANTIGEN"] == selected_antigen,
+    "ANTIGEN_DESCRIPTION"
+].unique()
+
+if len(antigen_description_arr) > 0:
+    antigen_description_text = antigen_description_arr[0]
+else:
+    antigen_description_text = "No hay descripción disponible para este antígeno."
 
 # Filtrado final del DataFrame
 df_filtered = df[
@@ -97,67 +122,59 @@ df_filtered = df[
 if selected_countries:
     df_filtered = df_filtered[df_filtered["NAME"].isin(selected_countries)]
 
+# Aplicar filtro de WHO Region solo si no se seleccionó "Todos"
+if selected_who_region != "Todos":
+    df_filtered = df_filtered[df_filtered["WHO REGIONS"] == selected_who_region]
+
 if df_filtered.empty:
     st.warning("No hay datos para los filtros seleccionados.")
 else:
     # Pivotar el DataFrame: filas = País, columnas = Año, valores = Cobertura
     df_pivot = df_filtered.pivot(index="NAME", columns="YEAR", values="COVERAGE")
 
-    # Formatear los valores para evitar decimales innecesarios
+    # Función para formatear valores
     def format_value(val):
         if pd.isna(val):
-            return "NaN"  # Mostrar "NaN" como texto
+            return "NaN"
         elif isinstance(val, float):
-            return f"{val:.2f}".rstrip('0').rstrip('.')  # Elimina ceros innecesarios
+            return f"{val:.2f}".rstrip('0').rstrip('.')
         else:
             return str(val)
-
     df_pivot = df_pivot.applymap(format_value)
 
-    # Función para aplicar el degradado de colores (0 = Rojo, 100 = Blanco)
+    # Función para aplicar el degradado de colores
     def color_gradient(val):
-        if val == "NaN":  # Ignorar valores "NaN" para no aplicar color
+        if val == "NaN":
             return 'background-color: white'
         else:
-            # Convertir el valor a float para calcular el degradado
             val = float(val) if val.replace('.', '', 1).isdigit() else 0
-            # Degradado de rojo (0) a blanco (100)
             red_intensity = int(255 * (val / 100))
-            color = f'background-color: rgba(255, {red_intensity}, {red_intensity}, 1)'
-            return color
-
+            return f'background-color: rgba(255, {red_intensity}, {red_intensity}, 1)'
     styled_df = df_pivot.style.applymap(color_gradient)
 
-    st.subheader("Tabla de Cobertura de Inmunización")
+    # Mostrar leyenda (izquierda) y descripción del antígeno (derecha)
+    col_legend, col_desc = st.columns([1, 2])
 
-    # --- LEYENDA ---
-    # Agrega aquí la leyenda del gradiente antes de mostrar la tabla
-    legend_html = """
-    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <span style="margin-right: 10px; font-weight: bold;">0</span>
-        <div style="
-            width: 200px;
-            height: 20px;
-            background: linear-gradient(to right, red, white);
-            margin-right: 10px;">
+    with col_legend:
+        legend_html = """
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <span style="margin-right: 10px; font-weight: bold;">0</span>
+            <div style="width: 200px; height: 20px; background: linear-gradient(to right, red, white); margin-right: 10px;"></div>
+            <span style="margin-right: 10px; font-weight: bold;">100</span>
+            <span style="font-style: italic; margin-left: 10px;">% Coverage</span>
         </div>
-        <span style="margin-right: 10px; font-weight: bold;">100</span>
-        <span style="font-style: italic; margin-left: 10px;">% Coverage</span>
-    </div>
-    """
-    st.markdown(legend_html, unsafe_allow_html=True)
+        """
+        st.markdown(legend_html, unsafe_allow_html=True)
 
-    # Mostrar la tabla pivotada con estilo
+    with col_desc:
+        st.subheader("Descripción del Antígeno")
+        st.write(antigen_description_text)
+
     st.markdown(styled_df.to_html(), unsafe_allow_html=True)
 
-    # Botón para descargar datos como CSV
     st.download_button(
         label="Descargar tabla como CSV",
         data=df_filtered.to_csv(index=False),
         file_name="tabla_filtrada.csv",
         mime="text/csv"
     )
-
-# Pie de página
-st.write("")
-st.write("")

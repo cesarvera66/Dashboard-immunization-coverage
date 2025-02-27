@@ -1,7 +1,3 @@
-A continuación, se presenta un ejemplo de README en formato Markdown para el repositorio [**Dashboard-immunization-coverage**](https://github.com/cesarvera66/Dashboard-immunization-coverage), tomando en cuenta la estructura de archivos y carpetas que has compartido. Puedes adaptarlo a tus necesidades específicas:
-
----
-
 # Dashboard de Cobertura de Inmunización
 
 Este proyecto es un **dashboard interactivo** desarrollado con [Streamlit](https://streamlit.io/) para visualizar y analizar datos de cobertura de inmunización. Los datos utilizados provienen de la [plataforma oficial de la OMS (Organización Mundial de la Salud)](https://immunizationdata.who.int/).

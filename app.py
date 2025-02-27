@@ -3,7 +3,7 @@ import pandas as pd
 
 # Configuración inicial de la página
 st.set_page_config(
-    page_title="Tabla de Cobertura de Inmunización",
+    page_title="Immunization Coverage Dashboard",
     layout="wide"
 )
 
@@ -29,8 +29,7 @@ def cargar_datos():
             "TARGET_NUMBER": "TARGET_NUMBER",
             "DOSES": "DOSES",
             "COVERAGE": "COVERAGE",
-            # Asegúrate de que en tu CSV ya exista la columna con las regiones WHO,
-            # por ejemplo con el nombre "WHO REGIONS"
+            
         }
         df.rename(columns=column_mapping, inplace=True)
     except Exception as e:
@@ -42,10 +41,10 @@ def cargar_datos():
     return df
 
 # Título y descripción
-st.title("Tabla de Cobertura de Inmunización")
+st.title("Immunization Coverage Dashboard")
 st.markdown("""
-Esta aplicación muestra la cobertura de inmunización por país y año.
-Usa los controles de la parte superior para filtrar la información.
+This Dashboard displays immunization coverage by country and year.
+Use the controls at the top to filter the data.
 """)
 
 # Cargar datos
@@ -73,32 +72,32 @@ col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     coverage_categories = sorted(df["COVERAGE_CATEGORY"].dropna().unique())
-    selected_coverage_category = st.selectbox("Categoría", options=coverage_categories)
+    selected_coverage_category = st.selectbox("Coverage Category", options=coverage_categories)
 
 with col2:
     # Filtrar por categoría para obtener los antígenos disponibles
     df_filtered_by_category = df[df["COVERAGE_CATEGORY"] == selected_coverage_category]
     antigens = sorted(df_filtered_by_category["ANTIGEN"].dropna().unique())
-    selected_antigen = st.selectbox("Antígeno", options=antigens)
+    selected_antigen = st.selectbox("Antigen", options=antigens)
 
 with col3:
     min_year, max_year = int(df["YEAR"].min()), int(df["YEAR"].max())
-    year_range = st.slider("Años", min_value=min_year, max_value=max_year, value=(2010, 2024))
+    year_range = st.slider("Year Range", min_value=min_year, max_value=max_year, value=(2010, 2024))
 
 with col4:
-    # Filtro de WHO Region (selección única, con opción "Todos"), basado en la categoría
+    # Filtro de WHO Region (selección única, con opción "All"), basado en la categoría
     df_filtered_by_category = df[df["COVERAGE_CATEGORY"] == selected_coverage_category]
     who_regions_list = sorted(df_filtered_by_category["WHO REGIONS"].dropna().unique())
-    who_regions_options = ["Todos"] + who_regions_list
+    who_regions_options = ["All"] + who_regions_list
     selected_who_region = st.selectbox("WHO Region", options=who_regions_options)
 
 with col5:
     # Filtro de Países: depende del filtro de WHO Region
-    if selected_who_region == "Todos":
+    if selected_who_region == "All":
         available_countries = sorted(df["NAME"].dropna().unique())
     else:
         available_countries = sorted(df[df["WHO REGIONS"] == selected_who_region]["NAME"].dropna().unique())
-    selected_countries = st.multiselect("Países", options=available_countries)
+    selected_countries = st.multiselect("Countries", options=available_countries)
 
 # Obtener la descripción del antígeno seleccionado
 antigen_description_arr = df_filtered_by_category.loc[
@@ -122,8 +121,8 @@ df_filtered = df[
 if selected_countries:
     df_filtered = df_filtered[df_filtered["NAME"].isin(selected_countries)]
 
-# Aplicar filtro de WHO Region solo si no se seleccionó "Todos"
-if selected_who_region != "Todos":
+# Aplicar filtro de WHO Region solo si no se seleccionó "All"
+if selected_who_region != "All":
     df_filtered = df_filtered[df_filtered["WHO REGIONS"] == selected_who_region]
 
 if df_filtered.empty:
@@ -167,14 +166,14 @@ else:
         st.markdown(legend_html, unsafe_allow_html=True)
 
     with col_desc:
-        st.subheader("Descripción del Antígeno")
+        st.subheader("Antigen Description")
         st.write(antigen_description_text)
 
     st.markdown(styled_df.to_html(), unsafe_allow_html=True)
 
     st.download_button(
-        label="Descargar tabla como CSV",
+        label="Download CSV",
         data=df_filtered.to_csv(index=False),
-        file_name="tabla_filtrada.csv",
+        file_name="filtered_table.csv",
         mime="text/csv"
     )
